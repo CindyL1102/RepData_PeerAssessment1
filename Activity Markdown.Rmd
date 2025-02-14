@@ -1,0 +1,139 @@
+---
+title: "Activity Project"
+author: "Cindy"
+date: "2025-01-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading and preprocessing the data
+
+```{r}
+setwd("/Users/cindyliu/Desktop/Coursera")
+activity<-read.csv("activity.csv")
+head(activity)
+library(ggplot2)
+```
+
+The data consists of three columns:
+
+1. steps: Number of steps taking in a 5-minute interval (missing values are coded as NA.
+
+2. date: The date on which the measurement was taken in YYYY-MM-DD format.
+
+3. interval: Identifier for the 5-minute interval in which measurement was taken.
+
+
+## What is mean total number of steps taken per day?
+
+1. Calculate the total number of steps taken per day
+
+```{r}
+daystep<- aggregate(activity$steps, by=list(Day=activity$date), FUN=sum)
+```
+
+2. Histogram of the total number of steps taken each day
+
+```{r}
+ggplot(daystep, aes(x)) +
+    geom_histogram(fill = "purple", binwidth = 1000) +
+    labs(title = "Histogram of steps per day", x = "Steps", y = "Frequency")
+```
+
+3. Mean and median number of steps taken each day
+
+```{r}
+mean(daystep$x, na.rm= TRUE)
+median(daystep$x, na.rm=TRUE)
+```
+
+## What is the average daily activity pattern?
+
+1. Make a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r}
+removeNA<- subset(activity, is.na(steps)==FALSE)
+intsteps <-aggregate(removeNA$steps, by=list(Interval=removeNA$interval), FUN=mean)
+colnames(intsteps)<- c("Interval", "AvgStep")
+ggplot(intsteps) +
+  geom_line(aes(x = Interval , y = AvgStep),color="blue",linewidth=1)+
+  labs(title = "Avg. Steps for Intervals", x = "Interval", y = "Avg. Steps")
+```
+
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+intsteps[which(intsteps$AvgStep==max(intsteps$AvgStep)),1]
+```
+
+## Imputing missing values
+
+The total number of missing values is 2304 rows.
+
+```{r}
+nrow(subset(activity, is.na(steps)==TRUE))
+```
+
+I will replace the missing values with the mean of the steps in the interval. The updated data is shown below.
+
+```{r}
+activityNew<- activity
+for(i in 1:nrow(activityNew)){
+    if(is.na(activityNew[i,]$steps)){
+        row<- which(intsteps$Interval==activityNew[i,]$interval)
+        activityNew[i,]$steps<-intsteps[row,]$AvgStep
+    }
+}
+head(activityNew)
+```
+
+```{r}
+daystepNew<- aggregate(activityNew$steps, by=list(Day=activityNew$date), FUN=sum)
+ggplot(daystepNew, aes(x)) +
+    geom_histogram(fill = "blue", binwidth = 1000) +
+    labs(title = "Histogram of steps per day", x = "Steps", y = "Frequency")
+
+mean(daystepNew$x, na.rm= TRUE)
+median(daystepNew$x, na.rm=TRUE)
+```
+
+The mean stays the same for the updated data while median changes about 0.1%.
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+activityNew$date <- as.Date(activityNew$date)
+activityNew$day <- weekdays(activityNew$date)
+for (i in 1:nrow(activityNew)) {
+    if (activityNew[i,]$day=="Saturday"|activityNew[i,]$day=="Sunday") {
+        activityNew[i,]$day<-"weekend"
+    }
+    else{
+        activityNew[i,]$day<-"weekday"
+    }
+}
+```
+
+```{r}
+ weekstep<- activityNew[activityNew$day=="weekday",]
+ weekendstep<- activityNew[activityNew$day=="weekend",]
+ week<-aggregate(weekstep$steps, by=list(Interval=weekstep$interval), FUN=sum)
+ weekend<-aggregate(weekendstep$steps, by=list(Interval=weekendstep$interval), FUN=sum)
+ colnames(week)<-colnames(weekend)<- c("Interval", "sum")
+ 
+p2<- ggplot(week) + 
+ geom_line(aes(x = Interval , y = sum),color="purple",linewidth=1)
+ labs(title = "Average Interval Steps of weekdays", x = "Interval", y = "Average. of Steps") 
+   
+p1<- ggplot(weekend) +
+geom_line(aes(x = Interval , y = sum),color="blue",linewidth=1)+
+labs(title = "Average Interval Steps for weekends", x = "Interval", y = "Average. Steps")
+
+library(gridExtra) 
+grid.arrange(p1, p2, ncol = 1)
+```
+
